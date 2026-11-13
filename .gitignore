@@ -1,0 +1,8 @@
+# Safety net: never publish raw expense files or working files
+*.csv
+*.xlsx
+*.xls
+*.png
+*.pdf
+.DS_Store
+.env*

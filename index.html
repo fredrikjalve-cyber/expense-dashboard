@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expense Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #fcfcfb; --ink: #1f2328; --ink2: #4d535b; --muted: #777c84; --line: #e1e0d9;
+    --accent: #b4532a; --accent-ink: #94401c; --accent-soft: #f7e9e1;
+    --neutral: #5b7896; --bar: #a9b9c9; --focus: #2f5d8a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 72px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+  h1 { font-size: 24px; margin: 0; letter-spacing: -.01em; }
+  .question { color: var(--muted); margin: 2px 0 0; }
+  .tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--ink2); margin: 0 0 20px; font-size: 15px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px; margin-bottom: 20px; }
+  select, button, .btn { font: inherit; font-size: 15px; border-radius: 8px; padding: 8px 12px; border: 1px solid #bdbbb2; background: #fff; color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
+  button:focus-visible, select:focus-visible, .btn:focus-within, th button:focus-visible, .barrow:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .hidden { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* 1. Verdict */
+  .verdict { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: 0; overflow: hidden; }
+  .tile { padding: 28px; border-left: 1px solid var(--line); min-width: 0; }
+  .tile:first-child { border-left: 0; }
+  .tile .label { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .tile .big { font-size: 40px; font-weight: 700; line-height: 1.15; letter-spacing: -.02em; margin-top: 6px; white-space: nowrap; }
+  .tile .big.word { font-size: 32px; white-space: normal; }
+  .tile .detail { color: var(--ink2); margin-top: 4px; }
+  .bad { color: var(--accent-ink); }
+  .calm { color: var(--ink2); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent-ink); background: var(--accent-soft);
+    border-radius: 999px; padding: 2px 9px; margin-left: 8px; vertical-align: middle; white-space: nowrap; letter-spacing: 0; text-transform: none; }
+  .datanote { font-size: 14px; color: var(--ink2); margin: -8px 4px 20px; }
+  .banner { background: var(--accent-soft); border: 1px solid #e3bfae; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; }
+
+  /* 2. Trend */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 14px; color: var(--ink2); margin-bottom: 8px; }
+  .legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  #trendBox { position: relative; }
+  #trend { display: block; width: 100%; height: auto; overflow: visible; }
+  #trend text { font: 13px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: var(--muted); }
+  #trend text.end { fill: var(--ink); font-weight: 600; }
+  .tip { position: absolute; pointer-events: none; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.08);
+    padding: 8px 12px; font-size: 14px; white-space: nowrap; z-index: 5; }
+  .tip b { display: block; margin-bottom: 2px; }
+  .tip i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+  /* 3. Bars */
+  .barrow { display: grid; grid-template-columns: 190px 1fr 96px 210px; gap: 16px; align-items: center; padding: 9px 6px; border-radius: 8px; cursor: pointer; margin: 0 -6px; }
+  .barrow:hover { background: #f1f0eb; }
+  .barrow .name { font-weight: 500; }
+  .track { height: 14px; }
+  .fill { height: 14px; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .fill.flag { background: var(--accent); }
+  .fill.zero { background: transparent; border-left: 2px solid var(--line); border-radius: 0; }
+  .barrow .amt { text-align: right; font-weight: 600; }
+  .barrow .chg { font-size: 14px; color: var(--ink2); }
+  .hint { font-size: 14px; color: var(--muted); margin-top: 12px; }
+
+  /* 4. Table */
+  .filters { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-bottom: 14px; }
+  .filters label { font-size: 15px; color: var(--ink2); }
+  .count { margin-left: auto; color: var(--ink2); font-size: 15px; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th button { border: 0; background: none; padding: 0; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  td { padding: 10px 12px 10px 0; border-bottom: 1px solid #eeede8; vertical-align: top; }
+  td.r, th.r { text-align: right; padding-right: 20px; }
+  td.notes { color: var(--ink2); }
+  td.nowrap { white-space: nowrap; }
+  .empty { color: var(--muted); padding: 20px 0; }
+
+  body.dragging .wrap { outline: 3px dashed var(--focus); outline-offset: -8px; border-radius: 16px; }
+  @media (max-width: 760px) {
+    .verdict { grid-template-columns: 1fr; }
+    .tile { border-left: 0; border-top: 1px solid var(--line); padding: 20px; }
+    .tile:first-child { border-top: 0; }
+    .card { padding: 20px; }
+    .barrow { grid-template-columns: 1fr auto; gap: 4px 12px; }
+    .barrow .track { grid-column: 1 / -1; order: 3; }
+    .barrow .chg { grid-column: 1 / -1; order: 4; }
+    .count { margin-left: 0; width: 100%; }
+  }
+  @media print { .tools, .hint { display: none !important; } body { background: #fff; } .card { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Expense Dashboard</h1>
+      <p class="question">Where is our money going, and is anything moving in the wrong direction?</p>
+    </div>
+    <div class="tools">
+      <label>Month <select id="month"></select></label>
+      <label class="btn">Load new file<input type="file" id="file" accept=".csv,text/csv"></label>
+      <button class="primary hidden" id="save">Save updated dashboard</button>
+    </div>
+  </header>
+
+  <div id="error" class="banner hidden" role="alert"></div>
+  <div id="saved" class="banner hidden" role="status"></div>
+  <div id="app"></div>
+</div>
+<script type="application/json" id="embedded">{"name": "cleaned_expenses.csv", "csv": "Date,Vendor,Category,Amount,Notes\n2026-01-24,Zoom,Software,150.00,\n2026-01-03,Zoom,Software,149.90,renewal\n2026-01-09,WeWork,Office Rent,2400.00,\n2026-01-25,Marriott,Travel,528.49,\n2026-01-24,Zoom,Software,149.90,reimbursed?\n2026-01-23,Marriott,Travel,378.95,monthly sub\n2026-01-15,Uber,Travel,59.13,offsite planning\n2026-01-21,LinkedIn,Software,60.00,monthly sub\n2026-01-21,Uber,Travel,62.86,\n2026-01-13,Corner Bistro,Meals & Entertainment,102.56,check w/ finance\n2026-02-21,Google Ads,Marketing,904.74,offsite planning\n2026-02-03,Uber,Travel,,NEEDS RECEIPT (receipt missing)\n2026-02-14,WeWork,Office Rent,2400.00,\n2026-02-28,Zoom,Software,150.00,reimbursed?\n2026-02-17,Mailchimp,Software,60.00,\n2026-02-14,Uber,Travel,25.23,Q2 campaign\n2026-02-28,Notion,Software,96.00,reimbursed?\n2026-02-16,Corner Bistro,Meals & Entertainment,49.19,\n2026-02-16,Canva,Software,54.99,Q2 campaign\n2026-02-15,Staples,Office Supplies,43.76,reimbursed?\n2026-02-01,Marriott,Travel,379.76,conf travel\n2026-02-17,Notion,Software,96.00,\n2026-02-26,Mailchimp,Software,60.00,monthly sub\n2026-03-02,Canva,Software,54.99,\n2026-03-07,Marriott,Travel,640.32,\n2026-03-26,Mailchimp,Software,60.00,\n2026-03-06,Marriott,Travel,567.59,monthly sub\n2026-03-13,Zoom,Software,149.90,\n2026-03-07,Uber,Travel,83.00,Q2 campaign\n2026-03-06,Staples,Office Supplies,33.82,check w/ finance\n2026-03-13,Marriott,Travel,407.14,monthly sub\n2026-03-19,LinkedIn,Software,59.99,team dinner w/ client\n2026-03-05,Google Ads,Marketing,1138.86,renewal\n2026-03-19,WeWork,Office Rent,2400.00,conf travel\n2026-03-08,Notion,Software,96.00,check w/ finance\n2026-03-10,Staples,Office Supplies,169.42,team dinner w/ client\n2026-04-07,WeWork,Office Rent,2400.00,team dinner w/ client\n2026-04-03,Zoom,Software,149.90,check w/ finance\n2026-04-06,Uber,Travel,66.63,offsite planning\n2026-04-18,Delta Air Lines,Travel,295.85,\n2026-04-12,Uber,Travel,77.83,conf travel\n2026-04-28,Staples,Office Supplies,88.00,\n2026-04-24,Delta Air Lines,Travel,686.77,\n2026-04-04,Canva,Software,54.99,team dinner w/ client\n2026-04-08,Marriott,Travel,353.25,conf travel\n2026-04-17,LinkedIn,Software,59.99,reimbursed?\n2026-04-02,Uber,Travel,22.00,reimbursed?\n2026-04-04,Staples,Office Supplies,85.00,\n2026-05-14,Corner Bistro,Meals & Entertainment,60.04,Q2 campaign\n2026-05-22,Uber,Travel,43.00,monthly sub\n2026-05-13,LinkedIn,Software,59.99,team dinner w/ client\n2026-05-07,Uber,Travel,44.52,Q2 campaign\n2026-05-26,Mailchimp,Software,60.00,\n2026-05-22,Marriott,Travel,513.83,renewal\n2026-05-28,WeWork,Office Rent,2400.00,offsite planning\n2026-05-13,Canva,Software,54.99,\n2026-05-08,Google Ads,Marketing,593.00,\n2026-05-22,Mailchimp,Software,60.00,\n2026-05-28,Canva,Software,55.00,check w/ finance\n2026-06-15,Uber,Travel,19.50,\n2026-06-08,Delta Air Lines,Travel,449.00,conf travel\n2026-06-15,Staples,Office Supplies,89.45,\n2026-06-13,WeWork,Office Rent,2400.00,renewal\n2026-06-09,Marriott,Travel,584.00,offsite planning\n2026-06-27,Delta Air Lines,Travel,485.65,\n2026-06-14,LinkedIn,Software,60.00,conf travel\n2026-06-15,Marriott,Travel,523.03,\n2026-06-01,Mailchimp,Software,60.00,\n2026-06-08,Zoom,Software,149.90,reimbursed?\n2026-06-15,Marriott,Travel,731.70,\n"}</script>
+<script>
+(function () {
+  "use strict";
+
+  // ---- Settings you might want changed later ----
+  var KNOWN_CATEGORIES = ["Software", "Office Rent", "Travel", "Meals & Entertainment", "Marketing", "Office Supplies"];
+  // Other names that mean the same thing as a recognized category.
+  var CATEGORY_ALIASES = {
+    "saas": "Software", "subscription": "Software", "subscriptions": "Software",
+    "rent": "Office Rent",
+    "meals": "Meals & Entertainment", "meals & entertainment": "Meals & Entertainment",
+    "ads": "Marketing", "advertising": "Marketing",
+    "supplies": "Office Supplies"
+  };
+  var DUPLICATE_TOLERANCE_CENTS = 100;   // same vendor, same month, amounts within $1.00
+  var TOP_N = 3;
+  // -----------------------------------------------
+
+  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var SHORT = MONTHS.map(function (m) { return m.slice(0, 3); });
+  var rows = [], leftOut = [], vendorMerges = {};
+
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+  function money(cents) {
+    var neg = cents < 0, v = Math.abs(cents);
+    var s = Math.floor(v / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + ("0" + (v % 100)).slice(-2);
+    return (neg ? "-$" : "$") + s;
+  }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  function monthLabel(key) { var p = key.split("-"); return MONTHS[+p[1] - 1] + " " + p[0]; }
+  function monthName(key) { return MONTHS[+key.split("-")[1] - 1]; }
+  function prevKey(key) {
+    var p = key.split("-"), y = +p[0], m = +p[1] - 1;
+    if (m === 0) { m = 12; y--; }
+    return y + "-" + ("0" + m).slice(-2);
+  }
+  function dayLabel(r) { return SHORT[r.m - 1] + " " + r.d; }
+  function longDate(d, m, y) { return d + " " + MONTHS[m - 1] + " " + y; }
+
+  // ---- Reading the CSV ----
+  function parseCSV(text) {
+    var out = [], row = [], cur = "", q = false, i = 0, c;
+    text = text.replace(/^﻿/, "");
+    for (; i < text.length; i++) {
+      c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+        else cur += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { row.push(cur); cur = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(cur); out.push(row); row = []; cur = "";
+      } else cur += c;
+    }
+    if (cur !== "" || row.length) { row.push(cur); out.push(row); }
+    // keep the original line number with each row; skip completely blank lines
+    var numbered = [];
+    out.forEach(function (r, idx) {
+      if (r.some(function (x) { return x.trim() !== ""; })) numbered.push({ cells: r, line: idx + 1 });
+    });
+    return numbered;
+  }
+
+  function validDate(y, m, d) {
+    if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1) return false;
+    return d <= new Date(y, m, 0).getDate();
+  }
+  function monthFromName(s) {
+    s = s.toLowerCase().replace(/\.$/, "");
+    if (s.length < 3) return 0;
+    for (var i = 0; i < 12; i++) {
+      var full = MONTHS[i].toLowerCase();
+      if (full.indexOf(s) === 0 || (s === "sept" && i === 8)) return i + 1;
+    }
+    return 0;
+  }
+  // Returns {y,m,d} for a clear date, {slash:true,a,b,y,fam} for 1/2/2026-style dates, or null.
+  function readDate(raw) {
+    var s = raw.trim().replace(/[T ]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?\s*(am|pm|z)?$/i, ""), m, mo;
+    if ((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(s))) return { y: +m[1], m: +m[2], d: +m[3] };
+    if ((m = /^([A-Za-z]{3,9}\.?)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/.exec(s)) && (mo = monthFromName(m[1])))
+      return { y: +m[3], m: mo, d: +m[2] };
+    if ((m = /^(\d{1,2})(?:st|nd|rd|th)?[\s-]([A-Za-z]{3,9}\.?),?[\s-](\d{4}|\d{2})$/.exec(s)) && (mo = monthFromName(m[2])))
+      return { y: m[3].length === 2 ? 2000 + +m[3] : +m[3], m: mo, d: +m[1] };
+    if ((m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})$/.exec(s)))
+      return { slash: true, a: +m[1], b: +m[2], y: m[3].length === 2 ? 2000 + +m[3] : +m[3], fam: m[3].length === 2 ? "short" : "long" };
+    return null;
+  }
+
+  // Returns {cents, tidied} or {missing:true, why}
+  function readAmount(raw) {
+    var s = raw.trim();
+    if (s === "") return { missing: true, why: "" };
+    var t = s, neg = false;
+    if (/^\(.*\)$/.test(t)) { neg = true; t = t.slice(1, -1); }
+    t = t.replace(/US\$|USD|\$/gi, "").replace(/\s+/g, "");
+    if (/^-/.test(t) || /-$/.test(t)) { neg = true; t = t.replace(/^-|-$/g, ""); }
+    if (/[€£¥₹]/.test(t) || /^[A-Za-z]{3}[\d.,]+$|^[\d.,]+[A-Za-z]{3}$/.test(t))
+      return { missing: true, why: "The amount \"" + s + "\" looks like it is in another currency. This tool only adds up US dollars." };
+    var ok = /^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(t) || /^\d+(\.\d{1,2})?$/.test(t) || /^\.\d{1,2}$/.test(t);
+    if (!ok) return { missing: true, why: "The amount \"" + s + "\" could not be read as a dollar amount with certainty." };
+    var parts = t.replace(/,/g, "").split(".");
+    var cents = (+parts[0] || 0) * 100 + +(((parts[1] || "") + "00").slice(0, 2));
+    return { cents: neg ? -cents : cents, tidied: !/^-?\d+(\.\d{1,2})?$/.test(s) };
+  }
+
+  function categoryKey(s) { return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/ and /g, " & "); }
+  function canonicalCategory(s) {
+    var t = categoryKey(s);
+    for (var i = 0; i < KNOWN_CATEGORIES.length; i++)
+      if (KNOWN_CATEGORIES[i].toLowerCase() === t) return KNOWN_CATEGORIES[i];
+    return CATEGORY_ALIASES[t] || null;
+  }
+
+  function vendorKey(s) {
+    return s.toLowerCase().replace(/[.,'"]/g, "").replace(/\s+/g, " ").trim()
+      .replace(/ (inc|llc|ltd|co|corp|corporation|company|gmbh|plc)$/, "");
+  }
+  function isMixedCase(s) { return /[a-z]/.test(s) && /[A-Z]/.test(s); }
+  function titleCase(s) { return s.replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
+
+  // Decide which spellings are the same vendor, and how to show each vendor's name.
+  function tidyVendors(list) {
+    var keys = {}, canon = {}, display = {};
+    list.forEach(function (r) { r.vkey = vendorKey(r.rawVendor); keys[r.vkey] = 1; });
+    var all = Object.keys(keys).sort(function (a, b) { return a.length - b.length; });
+    all.forEach(function (k) {
+      canon[k] = k;
+      for (var i = 0; i < all.length; i++)
+        if (all[i] !== k && all[i] !== "" && k.indexOf(all[i] + " ") === 0) { canon[k] = canon[all[i]] || all[i]; break; }
+    });
+    var variants = {};
+    list.forEach(function (r) {
+      var own = r.vkey; r.vkey = canon[own];
+      var v = variants[r.vkey] = variants[r.vkey] || { exact: {}, longer: [], spellings: {} };
+      v.spellings[r.rawVendor] = 1;
+      if (own === r.vkey) v.exact[r.rawVendor] = (v.exact[r.rawVendor] || 0) + 1;
+      else v.longer.push(r.rawVendor);
+    });
+    vendorMerges = {};
+    Object.keys(variants).forEach(function (k) {
+      var v = variants[k], best = null, bestScore = 0;
+      Object.keys(v.exact).forEach(function (name) {
+        var plain = name.trim().toLowerCase() === k;   // prefer "Zoom" over "Zoom Inc."
+        var score = (isMixedCase(name) ? 1000000 : 0) + (plain ? 1000 : 0) + v.exact[name];
+        if (isMixedCase(name) && score > bestScore) { best = name; bestScore = score; }
+      });
+      if (!best) {
+        var words = k.split(" ").length;
+        v.longer.forEach(function (name) {
+          var head = name.trim().split(/\s+/).slice(0, words).join(" ");
+          if (!best && isMixedCase(head) && vendorKey(head) === k) best = head;
+        });
+      }
+      display[k] = best || (k ? titleCase(k) : "(no vendor)");
+    });
+    list.forEach(function (r) { r.vendor = display[r.vkey]; });
+  }
+
+  function load(text, name) {
+    var table = parseCSV(text);
+    if (!table.length) throw new Error("This file is empty.");
+    var head = table[0].cells.map(function (h) { return h.trim().toLowerCase(); });
+    var col = {}, missingCols = [];
+    ["date", "vendor", "category", "amount"].forEach(function (h) {
+      col[h] = head.indexOf(h);
+      if (col[h] < 0) missingCols.push(h.charAt(0).toUpperCase() + h.slice(1));
+    });
+    col.notes = head.indexOf("notes");
+    if (missingCols.length)
+      throw new Error("This file is missing the column" + (missingCols.length > 1 ? "s" : "") + ": " + missingCols.join(", ") +
+        ". The first line of the file needs to be: Date, Vendor, Category, Amount, Notes.");
+
+    var pending = [], out = [];
+    leftOut = [];
+    function refuse(p, why) { leftOut.push({ line: p.line, date: p.rawDate, vendor: p.rawVendor, amount: p.rawAmount, why: why }); }
+
+    for (var i = 1; i < table.length; i++) {
+      var cells = table[i].cells;
+      var get = function (k) { return col[k] >= 0 && cells[col[k]] !== undefined ? cells[col[k]].trim() : ""; };
+      var p = { line: table[i].line, rawDate: get("date"), rawVendor: get("vendor"), rawCategory: get("category"),
+                rawAmount: get("amount"), notes: get("notes") };
+      var extra = cells.slice(head.length).some(function (x) { return x.trim() !== ""; });
+      if (/^(sub\s*|grand\s*)?totals?\b|^sum\b|^balance\b/i.test(p.rawVendor)) { refuse(p, "This looks like a total line from a spreadsheet, not an expense, so it was not added to the spending."); continue; }
+      if (extra) { refuse(p, "This row has more columns than the header, so the values may be in the wrong places (often an amount like 2,400.00 written without quotes)."); continue; }
+      if (/^[$\s]*\d{1,3}$/.test(p.rawAmount) && /^\d{3}(\.\d+)?$/.test(p.notes)) { refuse(p, "The amount looks like it was split in two by a comma (\"" + p.rawAmount + "\" followed by \"" + p.notes + "\"), so the real amount is unclear. Put quotes around the amount or remove the comma."); continue; }
+      if (p.rawDate === "") { refuse(p, "This row has no date, so it cannot be placed in a month."); continue; }
+      p.date = readDate(p.rawDate);
+      if (!p.date) { refuse(p, "The date \"" + p.rawDate + "\" could not be understood."); continue; }
+      pending.push(p);
+    }
+
+    // Dates like 03/02/2026 can mean 3 Feb or 2 Mar. Look at how the file writes its clear-cut dates.
+    var evidence = { long: { dmy: 0, mdy: 0 }, short: { dmy: 0, mdy: 0 } };
+    pending.forEach(function (p) {
+      var d = p.date; if (!d.slash) return;
+      if (d.a > 12 && d.b <= 12) evidence[d.fam].dmy++;
+      else if (d.b > 12 && d.a <= 12) evidence[d.fam].mdy++;
+    });
+    pending.forEach(function (p) {
+      var d = p.date, y, m, day, note = "";
+      if (!d.slash) { y = d.y; m = d.m; day = d.d; }
+      else {
+        y = d.y;
+        var ev = evidence[d.fam], style = d.fam === "long" ? "a 4-digit year" : "a 2-digit year";
+        if (d.a > 12 && d.b <= 12) { day = d.a; m = d.b; }
+        else if (d.b > 12 && d.a <= 12) { m = d.a; day = d.b; }
+        else if (d.a === d.b) { m = d.a; day = d.b; }
+        else if (d.a > 12 && d.b > 12) { refuse(p, "The date \"" + p.rawDate + "\" is not a real date."); return; }
+        else if (ev.dmy > 0 && ev.mdy === 0) {
+          day = d.a; m = d.b;
+          note = "read as " + longDate(day, m, y) + " (day first), because all " + ev.dmy + " clear-cut dates written this way with " + style + " put the day first";
+        } else if (ev.mdy > 0 && ev.dmy === 0) {
+          m = d.a; day = d.b;
+          note = "read as " + longDate(day, m, y) + " (month first), because all " + ev.mdy + " clear-cut dates written this way with " + style + " put the month first";
+        } else {
+          refuse(p, "The date \"" + p.rawDate + "\" could mean " + longDate(d.a, d.b, y) + " or " + longDate(d.b, d.a, y) +
+            ", and the rest of the file " + (ev.dmy + ev.mdy === 0 ? "gives no clue" : "is inconsistent about") + " which is meant. Rewrite it like " + y + "-03-15 to fix this.");
+          return;
+        }
+      }
+      if (!validDate(y, m, day)) { refuse(p, "The date \"" + p.rawDate + "\" is not a real date."); return; }
+      var a = readAmount(p.rawAmount);
+      out.push({
+        line: p.line, y: y, m: m, d: day, key: y + "-" + ("0" + m).slice(-2),
+        rawDate: p.rawDate, dateNote: note,
+        rawVendor: p.rawVendor, rawCategory: p.rawCategory,
+        cents: a.missing ? 0 : a.cents, missing: !!a.missing, amountWhy: a.why || "", rawAmount: p.rawAmount, amountTidied: !!a.tidied,
+        notes: p.notes
+      });
+    });
+
+    leftOut.sort(function (x, y) { return x.line - y.line; });
+    if (!out.length) {
+      var e = new Error("No usable expenses were found in this file." + (leftOut.length ? " First problem, on line " + leftOut[0].line + ": " + leftOut[0].why : ""));
+      throw e;
+    }
+
+    tidyVendors(out);
+
+    // Categories: recognized names, other names for them, and blanks.
+    var vendorCats = {};
+    out.forEach(function (r) {
+      var c = canonicalCategory(r.rawCategory);
+      if (r.rawCategory === "") return;
+      var v = vendorCats[r.vkey] = vendorCats[r.vkey] || {};
+      v[c || "?" + r.rawCategory] = 1;
+    });
+    out.forEach(function (r) {
+      var c = canonicalCategory(r.rawCategory);
+      r.catNote = "";
+      if (c) {
+        r.category = c; r.known = true;
+        if (categoryKey(r.rawCategory) !== c.toLowerCase()) r.catNote = "renamed";
+      } else if (r.rawCategory === "") {
+        var seen = Object.keys(vendorCats[r.vkey] || {});
+        if (seen.length === 1 && seen[0].charAt(0) !== "?") { r.category = seen[0]; r.known = true; r.catNote = "filled"; }
+        else { r.category = "Uncategorized"; r.known = false; r.catNote = "blank"; }
+      } else { r.category = r.rawCategory; r.known = false; }
+    });
+
+    rows = out;
+  }
+
+
+
+  function byCategory(list) { var t = {}; list.forEach(function (r) { t[r.category] = (t[r.category] || 0) + r.cents; }); return t; }
+  function sum(list) { return list.reduce(function (s, r) { return s + r.cents; }, 0); }
+
+  // =====================  Dashboard  =====================
+  var FAST_PCT = 25, FAST_CENTS = 10000;      // "growing fast" = up more than 25% AND more than $100 vs the prior month
+  var sourceText = "", sourceName = "", months = [], selected = "", tableState = { cat: "", month: "", sort: "" };
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  function svg(tag, attrs, text) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function whole(cents) { return (cents < 0 ? "-$" : "$") + Math.round(Math.abs(cents) / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function shortMonth(key) { return SHORT[+key.split("-")[1] - 1]; }
+  function nextKey(key) { var p = key.split("-"), y = +p[0], m = +p[1] + 1; if (m === 13) { m = 1; y++; } return y + "-" + ("0" + m).slice(-2); }
+  function inMonth(key) { return rows.filter(function (r) { return r.key === key; }); }
+  function catTotal(key, cat) { return sum(inMonth(key).filter(function (r) { return r.category === cat; })); }
+  function isFast(cur, prev) { return cur - prev > FAST_CENTS && (prev <= 0 || (cur - prev) / prev * 100 > FAST_PCT); }
+  function changeText(cur, prev) {
+    var d = cur - prev;
+    if (d === 0) return "no change";
+    var pct = prev > 0 ? " (" + (d > 0 ? "+" : "-") + Math.round(Math.abs(d) / prev * 100) + "%)" : "";
+    return (d > 0 ? "▲ up " : "▼ down ") + whole(Math.abs(d)) + pct;
+  }
+
+  // Everything the page shows for one month.
+  function summarize(key) {
+    var pk = prevKey(key), hasPrev = months.indexOf(pk) >= 0 && inMonth(pk).length > 0;
+    var cur = byCategory(inMonth(key)), prev = hasPrev ? byCategory(inMonth(pk)) : {}, names = {};
+    Object.keys(cur).concat(Object.keys(prev)).forEach(function (n) { names[n] = 1; });
+    var cats = Object.keys(names).map(function (n) {
+      var c = cur[n] || 0, p = prev[n] || 0;
+      return { name: n, cur: c, prev: p, diff: c - p, fast: hasPrev && isFast(c, p) };
+    }).sort(function (a, b) { return b.cur - a.cur || b.prev - a.prev || a.name.localeCompare(b.name); });
+    var fastest = null;
+    if (hasPrev) cats.forEach(function (c) { if (c.diff > 0 && (!fastest || c.diff > fastest.diff)) fastest = c; });
+    var total = sum(inMonth(key)), prevTotal = hasPrev ? sum(inMonth(pk)) : 0;
+    return { key: key, prevKey: pk, hasPrev: hasPrev, total: total, prevTotal: prevTotal, cats: cats, fastest: fastest,
+             totalFast: hasPrev && isFast(total, prevTotal) };
+  }
+
+  function draw() {
+    var app = $("app"); app.innerHTML = "";
+    var s = summarize(selected);
+    drawVerdict(app, s);
+    drawNotes(app);
+    drawTrend(app, s);
+    drawBars(app, s);
+    drawTable(app);
+    document.title = "Expense Dashboard - " + monthLabel(selected);
+  }
+
+  // ---- 1. Verdict strip ----
+  function tile(parent, label, big, bigClass, detail, pill) {
+    var t = el("div", "tile");
+    var l = el("div", "label", label);
+    if (pill) l.appendChild(el("span", "pill", pill));
+    t.appendChild(l);
+    t.appendChild(el("div", "big num " + (bigClass || ""), big));
+    t.appendChild(el("div", "detail", detail));
+    parent.appendChild(t);
+  }
+  function drawVerdict(app, s) {
+    var c = el("section", "card verdict");
+    c.setAttribute("aria-label", "Summary for " + monthLabel(s.key));
+    var n = inMonth(s.key).length;
+    tile(c, monthLabel(s.key) + " spend", whole(s.total), "", plural(n, "expense", "expenses"));
+    if (!s.hasPrev) {
+      tile(c, "vs " + monthName(s.prevKey), "–", "calm", "No " + monthName(s.prevKey) + " data in this file to compare with");
+      tile(c, "Fastest-growing category", "–", "calm", "Needs the month before to compare");
+    } else {
+      var d = s.total - s.prevTotal, pct = s.prevTotal > 0 ? Math.round(Math.abs(d) / s.prevTotal * 100) + "%" : "";
+      tile(c, "vs " + monthName(s.prevKey),
+        d === 0 ? "No change" : (d > 0 ? "▲ " : "▼ ") + whole(Math.abs(d)), d > 0 ? "bad" : "calm" + (d === 0 ? " word" : ""),
+        d === 0 ? "Same total as " + monthName(s.prevKey) : (d > 0 ? "Up " : "Down ") + pct + " from " + whole(s.prevTotal),
+        s.totalFast ? "growing fast" : "");
+      if (s.fastest)
+        tile(c, "Fastest-growing category", s.fastest.name, "word " + (s.fastest.fast ? "bad" : ""),
+          "▲ up " + whole(s.fastest.diff) + (s.fastest.prev > 0 ? " (+" + Math.round(s.fastest.diff / s.fastest.prev * 100) + "%)" : " (new this month)") +
+          ": " + whole(s.fastest.prev) + " to " + whole(s.fastest.cur), s.fastest.fast ? "growing fast" : "");
+      else
+        tile(c, "Fastest-growing category", "None", "word calm", "No category went up from " + monthName(s.prevKey));
+    }
+    app.appendChild(c);
+  }
+  function drawNotes(app) {
+    var zero = rows.filter(function (r) { return r.missing; }).length, parts = [];
+    if (zero) parts.push(plural(zero, "expense has", "expenses have") + " no usable amount and " + (zero === 1 ? "is" : "are") + " counted as $0");
+    if (leftOut.length) parts.push(plural(leftOut.length, "row", "rows") + " could not be used and " + (leftOut.length === 1 ? "is" : "are") + " left out");
+    if (parts.length) app.appendChild(el("p", "datanote", "Data notes for the whole file: " + parts.join("; ") +
+      ". Possible duplicates are counted. Open the same file in the Monthly Spend Reporter to see the details."));
+  }
+
+  // ---- 2. Trend line ----
+  function niceMax(v) {
+    var dollars = Math.max(v / 100, 1), mag = Math.pow(10, Math.floor(Math.log10(dollars))), steps = [1, 2, 2.5, 5, 10];
+    for (var i = 0; i < steps.length; i++) for (var n = 2; n <= 4; n++)
+      if (steps[i] * mag * n >= dollars) return { max: steps[i] * mag * n * 100, ticks: n };
+    return { max: dollars * 100, ticks: 4 };
+  }
+  function drawTrend(app, s) {
+    var c = el("section", "card");
+    c.appendChild(el("h2", "", "Monthly spend trend"));
+    var cat = s.fastest, catName = cat ? cat.name : null, catColor = cat && cat.fast ? "var(--accent)" : "var(--neutral)";
+    c.appendChild(el("p", "sub", catName
+      ? "Total spend each month, with " + catName + " (the fastest-growing category in " + monthName(s.key) + ") shown against it."
+      : "Total spend each month."));
+    var totals = months.map(function (k) { return sum(inMonth(k)); });
+    var catVals = catName ? months.map(function (k) { return catTotal(k, catName); }) : null;
+    if (catName) {
+      var lg = el("div", "legend"), a = el("span"), b = el("span");
+      var ia = el("i"); ia.style.borderColor = "var(--ink)"; a.appendChild(ia); a.appendChild(document.createTextNode("Total spend"));
+      var ib = el("i"); ib.style.borderColor = catColor; b.appendChild(ib); b.appendChild(document.createTextNode(catName + (cat.fast ? " (growing fast)" : "")));
+      lg.appendChild(a); lg.appendChild(b); c.appendChild(lg);
+    }
+    var W = 980, H = 320, L = 56, R = 150, T = 16, B = 34, pw = W - L - R, ph = H - T - B;
+    var scale = niceMax(Math.max.apply(null, totals));
+    var x = function (i) { return months.length === 1 ? L + pw / 2 : L + pw * i / (months.length - 1); };
+    var y = function (v) { return T + ph - ph * Math.max(v, 0) / scale.max; };
+    var box = el("div"); box.id = "trendBox";
+    var g = svg("svg", { id: "trend", viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Line chart of total spend by month" + (catName ? " with " + catName + " overlaid" : "") });
+    for (var i = 0; i <= scale.ticks; i++) {
+      var v = scale.max * i / scale.ticks, yy = y(v);
+      g.appendChild(svg("line", { x1: L, x2: L + pw, y1: yy, y2: yy, stroke: i === 0 ? "#bdbbb2" : "#e1e0d9", "stroke-width": 1 }));
+      g.appendChild(svg("text", { x: L - 10, y: yy + 4, "text-anchor": "end" }, whole(v)));
+    }
+    var si = months.indexOf(s.key);
+    months.forEach(function (k, i) {
+      var t = svg("text", { x: x(i), y: H - 10, "text-anchor": "middle" }, shortMonth(k) + (i === 0 || k.slice(5) === "01" ? " " + k.slice(0, 4) : ""));
+      if (i === si) { t.setAttribute("class", "end"); }
+      g.appendChild(t);
+    });
+    var cross = svg("line", { x1: 0, x2: 0, y1: T, y2: T + ph, stroke: "#bdbbb2", "stroke-width": 1, visibility: "hidden" });
+    g.appendChild(cross);
+    function series(vals, color, width) {
+      if (vals.length > 1) g.appendChild(svg("path", { d: vals.map(function (v, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); }).join(" "),
+        fill: "none", stroke: color, "stroke-width": width, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      vals.forEach(function (v, i) {
+        g.appendChild(svg("circle", { cx: x(i), cy: y(v), r: i === si ? 5.5 : 4, fill: color, stroke: "#fcfcfb", "stroke-width": 2 }));
+      });
+    }
+    if (catVals) series(catVals, catColor, 2);
+    series(totals, "var(--ink)", 2.5);
+    // direct labels at the line ends, nudged apart if they would collide
+    var last = months.length - 1, yT = y(totals[last]), yC = catVals ? y(catVals[last]) : null;
+    if (yC !== null && Math.abs(yT - yC) < 34) { var mid = (yT + yC) / 2, up = yT <= yC ? -17 : 17; yT = mid + up; yC = mid - up; }
+    function endLabel(yy, name, val) {
+      g.appendChild(svg("text", { x: x(last) + 12, y: yy - 2, "class": "end" }, name));
+      g.appendChild(svg("text", { x: x(last) + 12, y: yy + 14 }, whole(val)));
+    }
+    endLabel(yT, "Total", totals[last]);
+    if (catVals) endLabel(yC, catName, catVals[last]);
+    box.appendChild(g);
+    // hover: crosshair and one tooltip for both lines
+    var tip = el("div", "tip hidden"); box.appendChild(tip);
+    function show(i) {
+      cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
+      tip.textContent = ""; tip.appendChild(el("b", "", monthLabel(months[i])));
+      function rowLine(color, name, val) { var d = el("div"), dot = el("i"); dot.style.background = color; d.appendChild(dot);
+        d.appendChild(document.createTextNode(name + ": " + money(val))); tip.appendChild(d); }
+      rowLine("var(--ink)", "Total", totals[i]);
+      if (catVals) rowLine(catColor, catName, catVals[i]);
+      tip.classList.remove("hidden");
+      var r = g.getBoundingClientRect(), px = x(i) / W * r.width, left = px + 14;
+      if (left + tip.offsetWidth > r.width) left = px - tip.offsetWidth - 14;
+      tip.style.left = Math.max(0, left) + "px"; tip.style.top = "8px";
+    }
+    function hide() { cross.setAttribute("visibility", "hidden"); tip.classList.add("hidden"); }
+    g.addEventListener("mousemove", function (e) {
+      var r = g.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, best = 0;
+      months.forEach(function (k, i) { if (Math.abs(x(i) - px) < Math.abs(x(best) - px)) best = i; });
+      show(best);
+    });
+    g.addEventListener("mouseleave", hide);
+    g.addEventListener("click", function (e) {
+      var r = g.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, best = 0;
+      months.forEach(function (k, i) { if (Math.abs(x(i) - px) < Math.abs(x(best) - px)) best = i; });
+      if (inMonth(months[best]).length) { selected = months[best]; $("month").value = selected; draw(); }
+    });
+    c.appendChild(box);
+    c.appendChild(el("div", "hint", "Point at the chart to see a month's figures. Click a month to make it the month shown above and below."));
+    app.appendChild(c);
+  }
+
+  // ---- 3. Category bars ----
+  function drawBars(app, s) {
+    var c = el("section", "card");
+    c.appendChild(el("h2", "", "Where the money went in " + monthLabel(s.key)));
+    c.appendChild(el("p", "sub", s.hasPrev ? "Largest category first, with the change from " + monthName(s.prevKey) + "." : "Largest category first."));
+    var max = Math.max.apply(null, s.cats.map(function (k) { return k.cur; }).concat([1]));
+    s.cats.forEach(function (k) {
+      var row = el("div", "barrow"); row.tabIndex = 0; row.setAttribute("role", "button");
+      row.title = k.name + ": " + money(k.cur) + " in " + monthName(s.key) + (s.hasPrev ? ", " + money(k.prev) + " in " + monthName(s.prevKey) : "") + ". Click to list these expenses.";
+      var name = el("div", "name", k.name);
+      var track = el("div", "track"), fill = el("div", "fill" + (k.fast ? " flag" : "") + (k.cur <= 0 ? " zero" : ""));
+      fill.style.width = (k.cur > 0 ? k.cur / max * 100 : 0) + "%"; track.appendChild(fill);
+      var amt = el("div", "amt num", whole(k.cur));
+      var chg = el("div", "chg num");
+      if (s.hasPrev) {
+        var txt = k.prev === 0 && k.cur > 0 ? "new this month" : changeText(k.cur, k.prev);
+        chg.appendChild(el("span", k.fast ? "bad" : "", txt));
+        if (k.fast) chg.appendChild(el("span", "pill", "growing fast"));
+      }
+      row.appendChild(name); row.appendChild(track); row.appendChild(amt); row.appendChild(chg);
+      function go() { tableState.cat = k.name; tableState.month = s.key; draw(); var t = $("tableCard"); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      row.addEventListener("click", go);
+      row.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+      c.appendChild(row);
+    });
+    c.appendChild(el("div", "hint", "\"Growing fast\" means up more than " + FAST_PCT + "% and more than " + whole(FAST_CENTS) + " from the month before. Click a category to list its expenses below."));
+    app.appendChild(c);
+  }
+
+  // ---- 4. Expense table ----
+  function drawTable(app) {
+    var c = el("section", "card"); c.id = "tableCard";
+    c.appendChild(el("h2", "", "All expenses"));
+    var f = el("div", "filters");
+    function picker(label, value, options, onChange) {
+      var l = el("label", "", label + " "), sel = el("select");
+      options.forEach(function (o) { var op = el("option", "", o[1]); op.value = o[0]; sel.appendChild(op); });
+      sel.value = value; sel.addEventListener("change", function () { onChange(sel.value); draw(); keepTableInView(); });
+      l.appendChild(sel); f.appendChild(l);
+    }
+    var catNames = {}; rows.forEach(function (r) { catNames[r.category] = 1; });
+    picker("Category", tableState.cat, [["", "All categories"]].concat(Object.keys(catNames).sort().map(function (n) { return [n, n]; })), function (v) { tableState.cat = v; });
+    var withData = months.filter(function (k) { return inMonth(k).length; }).reverse();
+    picker("Month", tableState.month, [["", "All months"]].concat(withData.map(function (k) { return [k, monthLabel(k)]; })), function (v) { tableState.month = v; });
+    var list = rows.filter(function (r) { return (!tableState.cat || r.category === tableState.cat) && (!tableState.month || r.key === tableState.month); });
+    if (tableState.cat || tableState.month) {
+      var clear = el("button", "", "Clear filters");
+      clear.addEventListener("click", function () { tableState.cat = ""; tableState.month = ""; draw(); keepTableInView(); });
+      f.appendChild(clear);
+    }
+    f.appendChild(el("div", "count num", plural(list.length, "expense", "expenses") + " · " + money(sum(list)) + " total"));
+    c.appendChild(f);
+    var byDate = function (a, b) { return b.key.localeCompare(a.key) || b.d - a.d || a.line - b.line; };
+    list.sort(tableState.sort === "desc" ? function (a, b) { return b.cents - a.cents || byDate(a, b); }
+            : tableState.sort === "asc" ? function (a, b) { return a.cents - b.cents || byDate(a, b); } : byDate);
+    var wrap = el("div", "tablewrap"), tb = el("table"), hr = el("tr");
+    ["Date", "Vendor", "Category"].forEach(function (h) { hr.appendChild(el("th", "", h)); });
+    var th = el("th", "r"), sb = el("button", "", "Amount " + (tableState.sort === "desc" ? "▼" : tableState.sort === "asc" ? "▲" : "↕"));
+    sb.title = "Sort by amount";
+    sb.setAttribute("aria-label", "Sort by amount. Currently " + (tableState.sort === "desc" ? "largest first" : tableState.sort === "asc" ? "smallest first" : "sorted by date, newest first"));
+    sb.addEventListener("click", function () { tableState.sort = tableState.sort === "" ? "desc" : tableState.sort === "desc" ? "asc" : ""; draw(); keepTableInView(); });
+    th.appendChild(sb); hr.appendChild(th); hr.appendChild(el("th", "", "Notes")); tb.appendChild(hr);
+    list.forEach(function (r) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "nowrap num", SHORT[r.m - 1] + " " + r.d + ", " + r.y));
+      tr.appendChild(el("td", "", r.vendor));
+      tr.appendChild(el("td", "", r.category));
+      tr.appendChild(el("td", "r num", r.missing ? "no amount" : money(r.cents)));
+      tr.appendChild(el("td", "notes", r.notes));
+      tb.appendChild(tr);
+    });
+    wrap.appendChild(tb); c.appendChild(wrap);
+    if (!list.length) c.appendChild(el("div", "empty", "No expenses match these filters."));
+    app.appendChild(c);
+  }
+  function keepTableInView() { var t = $("tableCard"); if (t && t.getBoundingClientRect().top < 0 && t.scrollIntoView) t.scrollIntoView({ block: "start" }); }
+
+  // ---- Loading data ----
+  function setData(text, name) {
+    load(text, name);                       // fills rows and leftOut, or throws a plain-language error
+    sourceText = text; sourceName = name;
+    var keys = {}; rows.forEach(function (r) { keys[r.key] = 1; });
+    var have = Object.keys(keys).sort(); months = [];
+    for (var k = have[0]; k <= have[have.length - 1] && months.length < 240; k = nextKey(k)) months.push(k);
+    selected = have[have.length - 1];
+    tableState = { cat: "", month: "", sort: "" };
+    var sel = $("month"); sel.innerHTML = "";
+    have.slice().reverse().forEach(function (k) { var o = el("option", "", monthLabel(k)); o.value = k; sel.appendChild(o); });
+    sel.value = selected;
+    draw();
+  }
+  function showError(msg) {
+    var e = $("error"); e.textContent = ""; e.classList.remove("hidden");
+    e.appendChild(el("strong", "", "Couldn't use that file, so the dashboard still shows the previous data. "));
+    e.appendChild(document.createTextNode(msg));
+  }
+  function handle(file) {
+    if (!file) return;
+    $("error").classList.add("hidden"); $("saved").classList.add("hidden");
+    if (/\.(xlsx?|numbers)$/i.test(file.name)) { showError("That looks like a spreadsheet file. Save or export it as CSV first (in Excel: File > Save As > CSV), then load the CSV."); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var keepRows = rows, keepLeft = leftOut;
+      try { setData(String(fr.result), file.name); $("save").classList.remove("hidden"); }
+      catch (err) {
+        rows = keepRows; leftOut = keepLeft;
+        showError(err && err.message ? err.message : "Something unexpected went wrong.");
+        try { draw(); } catch (e2) {}
+      }
+    };
+    fr.onerror = function () { showError("The file could not be opened."); };
+    fr.readAsText(file);
+  }
+  // Makes a fresh copy of this page with the current data built in.
+  function saveCopy() {
+    var doc = document.documentElement.cloneNode(true);
+    doc.querySelector("#app").innerHTML = "";
+    doc.querySelector("#month").innerHTML = "";
+    doc.querySelector("#save").classList.add("hidden");
+    doc.querySelector("#error").classList.add("hidden"); doc.querySelector("#saved").classList.add("hidden");
+    doc.querySelector("body").className = "";
+    doc.querySelector("title").textContent = "Expense Dashboard";
+    doc.querySelector("#embedded").textContent = JSON.stringify({ name: sourceName, csv: sourceText }).replace(/</g, "\\u003c");
+    var blob = new Blob(["<!DOCTYPE html>\n" + doc.outerHTML], { type: "text/html" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "index.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    var s = $("saved"); s.textContent = "A new copy called \"index.html\" was saved to your Downloads folder with " + sourceName +
+      " built in. Replace the old index.html with it."; s.classList.remove("hidden");
+  }
+
+  $("file").addEventListener("change", function (e) { handle(e.target.files[0]); e.target.value = ""; });
+  $("month").addEventListener("change", function (e) { selected = e.target.value; draw(); });
+  $("save").addEventListener("click", saveCopy);
+  ["dragenter", "dragover"].forEach(function (ev) { window.addEventListener(ev, function (e) { e.preventDefault(); document.body.classList.add("dragging"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { window.addEventListener(ev, function (e) { e.preventDefault(); document.body.classList.remove("dragging"); }); });
+  window.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files.length) handle(e.dataTransfer.files[0]); });
+
+  try {
+    var emb = JSON.parse($("embedded").textContent);
+    setData(emb.csv, emb.name);
+  } catch (err) {
+    var e0 = $("error"); e0.classList.remove("hidden");
+    e0.textContent = "The data built into this dashboard could not be read. Use \"Load new file\" to load your expense CSV. (" + (err && err.message) + ")";
+  }
+})();
+</script>
+</body>
+</html>
